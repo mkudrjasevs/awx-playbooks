@@ -24,13 +24,14 @@
       set_fact:
         awx_host_id: "{{ host_query.json.results[0].id }}"
     
-    - name: Push facts to AWX host
+    - name: Update host variables (custom facts)
       uri:
-        url: "{{ awx_url }}/api/v2/hosts/{{ awx_host_id }}/ansible_facts/"
-        method: POST
+        url: "{{ awx_url }}/api/v2/hosts/{{ awx_host_id }}/"
+        method: PATCH
         headers:
           Authorization: "Bearer {{ awx_token }}"
           Content-Type: "application/json"
-        body: "{{ ansible_facts | to_json }}"
+        body:
+          variables: "{{ ansible_facts | to_nice_yaml }}"
         body_format: json
         validate_certs: false
