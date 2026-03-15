@@ -10,9 +10,23 @@
       set_fact:
         host_facts_json: "{{ ansible_facts | to_json }}"
 
-    - name: Push host facts via REST API
+    - name: Get AWX host ID
       uri:
-        url: "{{ awx_url }}/api/v2/hosts/{{ inventory_hostname }}/facts/"
+        url: "{{ awx_url }}/api/v2/hosts/?name={{ inventory_hostname }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ awx_token }}"
+          Content-Type: "application/json"
+        validate_certs: false
+      register: host_query
+    
+    - name: Set AWX host ID fact
+      set_fact:
+        awx_host_id: "{{ host_query.json.results[0].id }}"
+    
+    - name: Push facts to AWX host
+      uri:
+        url: "{{ awx_url }}/api/v2/hosts/{{ awx_host_id }}/facts/"
         method: POST
         headers:
           Authorization: "Bearer {{ awx_token }}"
