@@ -1,1 +1,52 @@
+---
+- name: Prepare host for AWX
+  hosts: all
+  become: true
+  gather_facts: true
 
+  vars:
+    awx_user: awx_user
+    awx_pubkey_file: "files/awx.pub"   # Public key stored in the project repo
+
+  tasks:
+
+  - name: Ensure Python is installed (Debian)
+    raw: test -e /usr/bin/python3 || (apt update && apt install -y python3)
+    changed_when: false
+    when: ansible_os_family == "Debian"
+
+  - name: Ensure Python is installed (RedHat)
+    raw: test -e /usr/bin/python3 || (dnf install -y python3)
+    changed_when: false
+    when: ansible_os_family == "RedHat"
+
+  - name: Create AWX user
+    user:
+      name: "{{ awx_user }}"
+      shell: /bin/bash
+      create_home: yes
+
+  - name: Ensure sudo group membership
+    user:
+      name: "{{ awx_user }}"
+      groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+      append: yes
+
+  - name: Set up AWX public key
+    authorized_key:
+      user: "{{ awx_user }}"
+      key: "{{ lookup('file', awx_pubkey_file) }}"
+
+  - name: Allow passwordless sudo
+    copy:
+      dest: "/etc/sudoers.d/{{ awx_user }}"
+      content: "{{ awx_user }} ALL=(ALL) NOPASSWD:ALL"
+      mode: "0440"
+
+  - name: Install basic packages
+    package:
+      name:
+        - git
+        - curl
+        - wget
+      state: present
