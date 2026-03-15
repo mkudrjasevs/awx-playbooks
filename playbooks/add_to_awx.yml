@@ -35,7 +35,7 @@
   - name: Set up AWX public key
     authorized_key:
       user: "{{ awx_user }}"
-      key: "{{ lookup('file', 'files/awx.pub') }}"
+      key: "{{ lookup('file', playbook_dir + '/files/awx.pub') }}"
 
   - name: Allow passwordless sudo
     copy:
