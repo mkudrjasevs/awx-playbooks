@@ -31,11 +31,11 @@
       name: "{{ awx_user }}"
       groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
       append: yes
-
+      
   - name: Set up AWX public key
     authorized_key:
       user: "{{ awx_user }}"
-      key: "{{ lookup('file', awx_pubkey_file) }}"
+      key: "{{ lookup('file', 'files/awx.pub') }}"
 
   - name: Allow passwordless sudo
     copy:
