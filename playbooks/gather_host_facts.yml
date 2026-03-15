@@ -9,3 +9,6 @@
         custom_awx_info:
           bootstrapped_user: awx_user
           public_key_added: true
+    - name: Show inventory_hostname and ansible_host
+      debug:
+        msg: "inventory_hostname={{ inventory_hostname }}, ansible_host={{ ansible_host }}"
