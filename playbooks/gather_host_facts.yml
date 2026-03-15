@@ -1,14 +1,24 @@
-- name: Gather host facts and set custom facts
+---
+- name: Test fact gathering for AWX
   hosts: all
   gather_facts: yes
   become: true
 
   tasks:
-    - name: Set custom AWX fact
-      set_fact:
-        custom_awx_info:
-          bootstrapped_user: awx_user
-          public_key_added: true
-    - name: Show inventory_hostname and ansible_host
+    - name: Ensure we can connect
+      ping:
+
+    - name: Show inventory info
       debug:
         msg: "inventory_hostname={{ inventory_hostname }}, ansible_host={{ ansible_host }}"
+
+    - name: Collect all facts using setup module
+      setup:
+
+    - name: Show OS info fact
+      debug:
+        var: ansible_facts['os_family']
+
+    - name: Show CPU count fact
+      debug:
+        var: ansible_facts['processor_cores']
