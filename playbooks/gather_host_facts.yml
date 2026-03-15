@@ -1,0 +1,20 @@
+---
+- name: Gather host facts and update AWX
+  hosts: all
+  gather_facts: yes
+  become: true
+
+  tasks:
+
+    - name: Convert facts to JSON
+      set_fact:
+        host_facts_json: "{{ ansible_facts | to_json }}"
+
+    - name: Update AWX host facts
+      awx.awx.tower_host_facts:
+        host_name: "{{ inventory_hostname }}"
+        inventory_name: "{{ awx_inventory_name }}"
+        facts: "{{ host_facts_json }}"
+        tower_host: "{{ awx_url }}"
+        tower_token: "{{ awx_token }}"
+        validate_certs: false
