@@ -1,37 +1,11 @@
----
-- name: Gather host facts and update AWX
+- name: Gather host facts and set custom facts
   hosts: all
   gather_facts: yes
   become: true
 
   tasks:
-
-    - name: Convert facts to JSON
+    - name: Set custom AWX fact
       set_fact:
-        host_facts_json: "{{ ansible_facts | to_json }}"
-
-    - name: Get AWX host ID
-      uri:
-        url: "{{ awx_url }}/api/v2/hosts/?name={{ inventory_hostname }}"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ awx_token }}"
-          Content-Type: "application/json"
-        validate_certs: false
-      register: host_query
-    
-    - name: Set AWX host ID fact
-      set_fact:
-        awx_host_id: "{{ host_query.json.results[0].id }}"
-    
-    - name: Update host variables (custom facts)
-      uri:
-        url: "{{ awx_url }}/api/v2/hosts/{{ awx_host_id }}/"
-        method: PATCH
-        headers:
-          Authorization: "Bearer {{ awx_token }}"
-          Content-Type: "application/json"
-        body:
-          variables: "{{ ansible_facts | to_nice_yaml }}"
-        body_format: json
-        validate_certs: false
+        custom_awx_info:
+          bootstrapped_user: awx_user
+          public_key_added: true
