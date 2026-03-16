@@ -112,9 +112,9 @@
       - tailscale_auth_key != ""
       - not tailscale_logged_in
 
-##########################
+  ##########################
   # Zabbix installation (AlmaLinux 10)
-##########################
+  ##########################
   - name: CLEANUP - Remove old Zabbix repo and clear cache
     shell: |
       dnf remove -y zabbix-release
@@ -125,13 +125,13 @@
     ignore_errors: true
 
   - name: Ensure excludepkgs for EPEL
-    lineinfile: # Using lineinfile is often safer for single lines than blockinfile
+    lineinfile:
       path: /etc/yum.repos.d/epel.repo
       regexp: '^excludepkgs='
       line: 'excludepkgs=zabbix*'
       insertafter: '^\[epel\]'
     when: ansible_os_family == "RedHat"
-    ignore_errors: true # In case epel.repo doesn't exist yet
+    ignore_errors: true
 
   - name: Install Zabbix repository RPM
     dnf:
@@ -141,10 +141,10 @@
     when: ansible_os_family == "RedHat"
 
   - name: Install Zabbix agent 2
-    dnf: # Use dnf specifically for RedHat family
+    dnf: 
       name: zabbix-agent2
       state: present
-      update_cache: yes # This is the critical fix
+      update_cache: yes
     when: ansible_os_family == "RedHat"
 
   - name: Install optional Zabbix agent 2 plugins
@@ -160,31 +160,34 @@
   - name: Configure Zabbix Server IP
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^(# )?Server='
+      regexp: '^#? ?Server=.*'
       line: "Server={{ zabbix_server }}"
       state: present
-      backup: yes
+    notify: Restart Zabbix agent 2
 
-  - name: Configure Zabbix ServerActive (for active checks)
+  - name: Configure Zabbix ServerActive
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^(# )?ServerActive='
+      regexp: '^#? ?ServerActive=.*'
       line: "ServerActive={{ zabbix_server }}"
       state: present
+    notify: Restart Zabbix agent 2
 
   - name: Configure Zabbix Hostname
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^(# )?Hostname='
+      regexp: '^#? ?Hostname=.*'
       line: "Hostname={{ zabbix_hostname }}"
       state: present
+    notify: Restart Zabbix agent 2
 
   - name: Configure Zabbix agent listen port
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^(# )?ListenPort='
+      regexp: '^#? ?ListenPort=.*'
       line: "ListenPort={{ zabbix_agent_listen_port }}"
       state: present
+    notify: Restart Zabbix agent 2
 
   - name: Enable and start Zabbix agent 2 service
     service:
