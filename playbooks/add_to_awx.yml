@@ -16,6 +16,7 @@
         name: "{{ inventory_hostname }}"
       # Optional: If you want to ensure it is also set in /etc/hosts
       become: true
+      
     - name: Disable firewalld (RedHat/AlmaLinux)
       service:
         name: firewalld
