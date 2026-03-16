@@ -50,6 +50,7 @@
           - git
           - curl
           - wget
+          - open-vm-tools
         state: present
 
     ##########################
