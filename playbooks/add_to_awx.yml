@@ -6,7 +6,6 @@
 
   vars:
     awx_user: awx_user
-    awx_pubkey: ""
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
     zabbix_version: "7.4"
