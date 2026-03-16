@@ -157,27 +157,34 @@
     ignore_errors: true
     when: ansible_os_family == "RedHat"
 
-  - name: Configure Zabbix server
+  - name: Configure Zabbix Server IP
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^Server='
+      regexp: '^(# )?Server='
       line: "Server={{ zabbix_server }}"
-      create: yes
-    when: zabbix_server != ""
+      state: present
+      backup: yes
 
-  - name: Configure Zabbix hostname
+  - name: Configure Zabbix ServerActive (for active checks)
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^Hostname='
+      regexp: '^(# )?ServerActive='
+      line: "ServerActive={{ zabbix_server }}"
+      state: present
+
+  - name: Configure Zabbix Hostname
+    lineinfile:
+      path: /etc/zabbix/zabbix_agent2.conf
+      regexp: '^(# )?Hostname='
       line: "Hostname={{ zabbix_hostname }}"
-      create: yes
+      state: present
 
   - name: Configure Zabbix agent listen port
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^ListenPort='
+      regexp: '^(# )?ListenPort='
       line: "ListenPort={{ zabbix_agent_listen_port }}"
-      create: yes
+      state: present
 
   - name: Enable and start Zabbix agent 2 service
     service:
