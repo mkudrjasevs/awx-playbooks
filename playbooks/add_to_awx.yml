@@ -109,12 +109,10 @@
     ignore_errors: true
     when: ansible_os_family == "RedHat"
 
-  # Install Zabbix repo
-  - name: Install Zabbix repository
-    command: >
-      rpm -Uvh https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/{{ ansible_distribution_major_version }}/noarch/zabbix-release-latest-{{ zabbix_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm
-    args:
-      creates: /etc/yum.repos.d/zabbix.repo
+  - name: Install Zabbix repo package
+    package:
+      name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/{{ ansible_distribution_major_version }}/noarch/zabbix-release-latest-{{ zabbix_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm"
+      state: present
     when: ansible_os_family == "RedHat"
 
   - name: Clean dnf cache
