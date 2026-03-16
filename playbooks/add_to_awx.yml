@@ -7,12 +7,6 @@
   vars:
     awx_user: awx_user
     awx_pubkey: ""
-
-    tailscale_auth_key: ""  
-    tailscale_client_id: ""   
-    tailscale_client_secret: ""  
-
-    zabbix_server: ""      # Set your Zabbix server
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
     zabbix_version: "7.4"
