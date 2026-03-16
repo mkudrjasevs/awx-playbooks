@@ -53,6 +53,25 @@
           - open-vm-tools
         state: present
 
+    - name: Install and configure TuneD
+      block:
+        - name: Install tuned
+          dnf:
+            name: tuned
+            state: present
+
+        - name: Start and enable tuned
+          service:
+            name: tuned
+            state: started
+            enabled: true
+
+        - name: Apply virtual-guest profile
+          command: tuned-adm profile virtual-guest
+          register: tuned_result
+          changed_when: "'Current active profile: virtual-guest' not in tuned_result.stdout"
+        
+
     ##########################
     # Tailscale setup
     ##########################
