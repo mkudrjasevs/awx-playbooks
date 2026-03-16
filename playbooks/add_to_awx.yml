@@ -157,37 +157,21 @@
     ignore_errors: true
     when: ansible_os_family == "RedHat"
 
-  - name: Configure Zabbix Server IP
-    lineinfile:
-      path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^#? ?Server=.*'
-      line: "Server={{ zabbix_server }}"
-      state: present
-    notify: Restart Zabbix agent 2
-
-  - name: Configure Zabbix ServerActive
-    lineinfile:
-      path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^#? ?ServerActive=.*'
-      line: "ServerActive={{ zabbix_server }}"
-      state: present
-    notify: Restart Zabbix agent 2
-
-  - name: Configure Zabbix Hostname
-    lineinfile:
-      path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^#? ?Hostname=.*'
-      line: "Hostname={{ zabbix_hostname }}"
-      state: present
-    notify: Restart Zabbix agent 2
-
-  - name: Configure Zabbix agent listen port
-    lineinfile:
-      path: /etc/zabbix/zabbix_agent2.conf
-      regexp: '^#? ?ListenPort=.*'
-      line: "ListenPort={{ zabbix_agent_listen_port }}"
-      state: present
-    notify: Restart Zabbix agent 2
+  - name: Overwrite Zabbix Agent 2 configuration
+    copy:
+      dest: /etc/zabbix/zabbix_agent2.conf
+      owner: root
+      group: root
+      mode: '0644'
+      content: |
+        Server={{ zabbix_server }}
+        ServerActive={{ zabbix_server }}
+        Hostname={{ zabbix_hostname }}
+        ListenPort={{ zabbix_agent_listen_port }}
+        LogFile=/var/log/zabbix/zabbix_agent2.log
+        LogFileSize=0
+        Include=/etc/zabbix/zabbix_agent2.d/*.conf
+        ControlSocket=/run/zabbix/agent2.sock
 
   - name: Enable and start Zabbix agent 2 service
     service:
