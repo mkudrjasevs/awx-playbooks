@@ -108,8 +108,8 @@
       line: 'excludepkgs=zabbix*'
     ignore_errors: true
     when: ansible_os_family == "RedHat"
-
-  - name: Install Zabbix repo package
+    
+  - name: Install Zabbix repository
     package:
       name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/{{ ansible_distribution_major_version }}/noarch/zabbix-release-latest-{{ zabbix_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm"
       state: present
