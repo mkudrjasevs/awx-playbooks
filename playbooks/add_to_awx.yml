@@ -117,12 +117,12 @@
   ##########################
 
   - name: Ensure excludepkgs for EPEL
-  blockinfile:
-    path: /etc/yum.repos.d/epel.repo
-    insertafter: '^\[epel\]'
-    block: |
-      excludepkgs=zabbix*
-  when: ansible_os_family == "RedHat"
+    blockinfile:
+      path: /etc/yum.repos.d/epel.repo
+      insertafter: '^\[epel\]'
+      block: |
+        excludepkgs=zabbix*
+    when: ansible_os_family == "RedHat"
 
   - name: Install Zabbix repository RPM
     dnf:
