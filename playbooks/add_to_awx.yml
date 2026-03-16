@@ -10,13 +10,13 @@
     zabbix_agent_listen_port: 10050
     zabbix_version: "7.4"
 
-  - name: Set system hostname to match AWX inventory name
+  tasks:
+    - name: Set system hostname to match AWX inventory name
       hostname:
         name: "{{ inventory_hostname }}"
       # Optional: If you want to ensure it is also set in /etc/hosts
       become: true
-
-  tasks:
+      
     - name: Ensure Python is installed (Debian)
       raw: test -e /usr/bin/python3 || (apt update && apt install -y python3)
       changed_when: false
