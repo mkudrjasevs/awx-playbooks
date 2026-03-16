@@ -12,7 +12,7 @@
     tailscale_client_id: ""   
     tailscale_client_secret: ""  
 
-    zabbix_server: ""      # e.g. "zabbix.example.com"
+    zabbix_server: ""
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
     zabbix_version: "7.4"
@@ -64,7 +64,7 @@
     assert:
       that:
         - tailscale_auth_key != "" or tailscale_client_secret != ""
-      fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret (set via job template vars)."
+      fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret."
     when: tailscale_auth_key != "" or tailscale_client_id != "" or tailscale_client_secret != ""
 
   - name: Use client secret as tailscale auth key when auth key is not directly provided
@@ -74,7 +74,7 @@
       - tailscale_auth_key == ""
       - tailscale_client_secret != ""
 
-  - name: Install Tailscale (automatic installer)
+  - name: Install Tailscale
     shell: |
       set -euo pipefail
       curl -fsSL https://tailscale.com/install.sh | sh
@@ -94,28 +94,42 @@
       tailscale_logged_in: "{{ (tailscale_status.stdout | default('')) is not search('Logged out|Not logged in') }}"
     when: tailscale_status.stdout is defined
 
-  - name: Bring up tailscale (login to tailnet)
+  - name: Bring up tailscale
     command: tailscale up --authkey "{{ tailscale_auth_key }}"
     when:
       - tailscale_auth_key != ""
       - not tailscale_logged_in
-    register: tailscale_up
-    
-  - name: Install Zabbix repo
-    dnf:
-      name: "https://repo.zabbix.com/zabbix/7.4/release/alma/{{ ansible_distribution_major_version }}/noarch/zabbix-release-latest-7.4.el{{ ansible_distribution_major_version }}.noarch.rpm"
-      state: present
-      disable_gpg_check: yes
+
+  # Disable Zabbix packages from EPEL
+  - name: Disable Zabbix packages from EPEL
+    lineinfile:
+      path: /etc/yum.repos.d/epel.repo
+      regexp: '^excludepkgs='
+      line: 'excludepkgs=zabbix*'
+    ignore_errors: true
     when: ansible_os_family == "RedHat"
-  
-  - name: Refresh dnf cache
+
+  # Install Zabbix repo
+  - name: Install Zabbix repository
+    command: >
+      rpm -Uvh https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/{{ ansible_distribution_major_version }}/noarch/zabbix-release-latest-{{ zabbix_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm
+    args:
+      creates: /etc/yum.repos.d/zabbix.repo
+    when: ansible_os_family == "RedHat"
+
+  - name: Clean dnf cache
     command: dnf clean all
     when: ansible_os_family == "RedHat"
-  
+
+  - name: Rebuild dnf metadata
+    command: dnf makecache
+    when: ansible_os_family == "RedHat"
+
   - name: Install Zabbix agent2
     package:
       name: zabbix-agent2
       state: present
+    when: ansible_os_family == "RedHat"
 
   - name: Ensure Zabbix configuration has required values
     lineinfile:
