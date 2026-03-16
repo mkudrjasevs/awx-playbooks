@@ -112,8 +112,3 @@
       - tailscale_auth_key != ""
       - not tailscale_logged_in
     register: tailscale_up
-
-  # --------------------------------------------------
-  # Zabbix setup (AlmaLinux/RHEL)
-  # --------------------------------------------------
----
