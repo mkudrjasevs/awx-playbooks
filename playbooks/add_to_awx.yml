@@ -16,6 +16,13 @@
         name: "{{ inventory_hostname }}"
       # Optional: If you want to ensure it is also set in /etc/hosts
       become: true
+    - name: Disable firewalld (RedHat/AlmaLinux)
+      service:
+        name: firewalld
+        state: stopped
+        enabled: false
+      when: ansible_os_family == "RedHat"
+      ignore_errors: true # In case firewalld isn't installed at all
       
     - name: Ensure Python is installed (Debian)
       raw: test -e /usr/bin/python3 || (apt update && apt install -y python3)
