@@ -75,6 +75,8 @@
           ServerActive={{ zabbix_server }}
           Hostname={{ zabbix_hostname }}
           ListenPort={{ zabbix_agent_listen_port }}
+          # This line tells Zabbix Server how to categorize this new host
+          HostMetadata=autoreg_linux
           LogFile=/var/log/zabbix/zabbix_agent2.log
           LogFileSize=0
           Include=/etc/zabbix/zabbix_agent2.d/*.conf
