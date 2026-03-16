@@ -6,7 +6,15 @@
 
   vars:
     awx_user: awx_user
-    awx_pubkey_file: "files/awx.pub"   # Public key stored in the project repo
+    awx_pubkey: ""
+
+    tailscale_auth_key: ""  
+    tailscale_client_id: ""   
+    tailscale_client_secret: ""  
+
+    zabbix_server: ""      # e.g. "zabbix.example.com"
+    zabbix_hostname: "{{ ansible_fqdn }}"
+    zabbix_agent_listen_port: 10050
 
   tasks:
 
@@ -50,3 +58,86 @@
         - curl
         - wget
       state: present
+
+  - name: Validate Tailscale credential vars
+    assert:
+      that:
+        - tailscale_auth_key != "" or tailscale_client_secret != ""
+      fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret (set via job template vars)."
+    when: tailscale_auth_key != "" or tailscale_client_id != "" or tailscale_client_secret != ""
+
+  - name: Use client secret as tailscale auth key when auth key is not directly provided
+    set_fact:
+      tailscale_auth_key: "{{ tailscale_client_secret }}"
+    when:
+      - tailscale_auth_key == ""
+      - tailscale_client_secret != ""
+
+  - name: Install Tailscale (automatic installer)
+    shell: |
+      set -euo pipefail
+      curl -fsSL https://tailscale.com/install.sh | sh
+    args:
+      creates: /usr/bin/tailscale
+    when: tailscale_auth_key != "" or tailscale_client_secret != ""
+
+  - name: Check tailscale login status
+    command: tailscale status
+    register: tailscale_status
+    failed_when: false
+    changed_when: false
+    when: tailscale_auth_key != "" or tailscale_client_secret != ""
+
+  - name: Derive whether tailscale is already logged in
+    set_fact:
+      tailscale_logged_in: "{{ (tailscale_status.stdout | default('')) is not search('Logged out|Not logged in') }}"
+    when: tailscale_status.stdout is defined
+
+  - name: Bring up tailscale (login to tailnet)
+    command: tailscale up --authkey "{{ tailscale_auth_key }}"
+    when:
+      - tailscale_auth_key != ""
+      - not tailscale_logged_in
+    register: tailscale_up
+
+  - name: Ensure Zabbix repository is configured (Debian/Ubuntu)
+    apt_repository:
+      repo: "deb https://repo.zabbix.com/zabbix/6.4/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} main"
+      state: present
+      filename: zabbix
+    when: ansible_os_family == "Debian"
+
+  - name: Ensure Zabbix repository is configured (RedHat/CentOS)
+    yum_repository:
+      name: zabbix
+      description: Zabbix Official Repository
+      baseurl: "https://repo.zabbix.com/zabbix/6.4/rhel/$releasever/x86_64/"
+      gpgcheck: yes
+      gpgkey: https://repo.zabbix.com/zabbix-official-repo.key
+      enabled: yes
+    when: ansible_os_family == "RedHat"
+
+  - name: Install Zabbix agent2
+    package:
+      name: zabbix-agent2
+      state: present
+
+  - name: Ensure Zabbix configuration has required values
+    ini_file:
+      dest: /etc/zabbix/zabbix_agent2.conf
+      section: ""
+      option: "{{ item.option }}"
+      value: "{{ item.value }}"
+      no_extra_spaces: yes
+    loop:
+      - { option: Server, value: "{{ zabbix_server }}" }
+      - { option: Hostname, value: "{{ zabbix_hostname }}" }
+      - { option: ListenPort, value: "{{ zabbix_agent_listen_port }}" }
+    when: zabbix_server != ""
+
+  - name: Ensure zabbix-agent2 service is enabled and running
+    service:
+      name: zabbix-agent2
+      state: started
+      enabled: true
+    when: zabbix_server != ""
