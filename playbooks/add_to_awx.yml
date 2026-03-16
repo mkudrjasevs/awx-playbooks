@@ -1,5 +1,5 @@
 ---
-- name: Prepare host for AWX and Zabbix
+- name: Prepare host for AWX
   hosts: all
   become: true
   gather_facts: true
