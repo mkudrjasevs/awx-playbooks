@@ -12,13 +12,16 @@
     tailscale_client_id: ""   
     tailscale_client_secret: ""  
 
-    zabbix_server: ""
+    zabbix_server: ""      # e.g. "zabbix.example.com"
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
     zabbix_version: "7.4"
 
   tasks:
 
+  # --------------------------------------------------
+  # Ensure Python installed for Ansible modules
+  # --------------------------------------------------
   - name: Ensure Python is installed (Debian)
     raw: test -e /usr/bin/python3 || (apt update && apt install -y python3)
     changed_when: false
@@ -29,6 +32,9 @@
     changed_when: false
     when: ansible_os_family == "RedHat"
 
+  # --------------------------------------------------
+  # Create AWX user and sudo setup
+  # --------------------------------------------------
   - name: Create AWX user
     user:
       name: "{{ awx_user }}"
@@ -40,7 +46,7 @@
       name: "{{ awx_user }}"
       groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
       append: yes
-      
+
   - name: Set up AWX public key
     authorized_key:
       user: "{{ awx_user }}"
@@ -52,6 +58,9 @@
       content: "{{ awx_user }} ALL=(ALL) NOPASSWD:ALL"
       mode: "0440"
 
+  # --------------------------------------------------
+  # Install basic packages
+  # --------------------------------------------------
   - name: Install basic packages
     package:
       name:
@@ -60,6 +69,9 @@
         - wget
       state: present
 
+  # --------------------------------------------------
+  # Tailscale setup (optional)
+  # --------------------------------------------------
   - name: Validate Tailscale credential vars
     assert:
       that:
@@ -67,14 +79,14 @@
       fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret."
     when: tailscale_auth_key != "" or tailscale_client_id != "" or tailscale_client_secret != ""
 
-  - name: Use client secret as tailscale auth key when auth key is not directly provided
+  - name: Use client secret as tailscale auth key if needed
     set_fact:
       tailscale_auth_key: "{{ tailscale_client_secret }}"
     when:
       - tailscale_auth_key == ""
       - tailscale_client_secret != ""
 
-  - name: Install Tailscale
+  - name: Install Tailscale (automatic installer)
     shell: |
       set -euo pipefail
       curl -fsSL https://tailscale.com/install.sh | sh
@@ -89,47 +101,38 @@
     changed_when: false
     when: tailscale_auth_key != "" or tailscale_client_secret != ""
 
-  - name: Derive whether tailscale is already logged in
+  - name: Set tailscale_logged_in fact
     set_fact:
       tailscale_logged_in: "{{ (tailscale_status.stdout | default('')) is not search('Logged out|Not logged in') }}"
     when: tailscale_status.stdout is defined
 
-  - name: Bring up tailscale
+  - name: Bring up tailscale (login to tailnet)
     command: tailscale up --authkey "{{ tailscale_auth_key }}"
     when:
       - tailscale_auth_key != ""
       - not tailscale_logged_in
+    register: tailscale_up
 
-  # Disable Zabbix packages from EPEL
-  - name: Disable Zabbix packages from EPEL
-    lineinfile:
-      path: /etc/yum.repos.d/epel.repo
-      regexp: '^excludepkgs='
-      line: 'excludepkgs=zabbix*'
-    ignore_errors: true
-    when: ansible_os_family == "RedHat"
-    
-  - name: Install Zabbix repository
+  # --------------------------------------------------
+  # Zabbix setup (AlmaLinux/RHEL)
+  # --------------------------------------------------
+  - name: Install Zabbix repository RPM
     package:
       name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/{{ ansible_distribution_major_version }}/noarch/zabbix-release-latest-{{ zabbix_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm"
       state: present
     when: ansible_os_family == "RedHat"
 
-  - name: Clean dnf cache
-    command: dnf clean all
-    when: ansible_os_family == "RedHat"
-
-  - name: Rebuild dnf metadata
+  - name: Refresh DNF cache
     command: dnf makecache
     when: ansible_os_family == "RedHat"
 
-  - name: Install Zabbix agent2
+  - name: Install Zabbix agent 2
     package:
       name: zabbix-agent2
       state: present
     when: ansible_os_family == "RedHat"
 
-  - name: Ensure Zabbix configuration has required values
+  - name: Configure Zabbix server
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
       regexp: '^Server='
@@ -137,7 +140,7 @@
       create: yes
     when: zabbix_server != ""
 
-  - name: Ensure Zabbix hostname is configured
+  - name: Configure Zabbix hostname
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
       regexp: '^Hostname='
@@ -145,7 +148,7 @@
       create: yes
     when: zabbix_server != ""
 
-  - name: Ensure Zabbix agent listen port is configured
+  - name: Configure Zabbix listen port
     lineinfile:
       path: /etc/zabbix/zabbix_agent2.conf
       regexp: '^ListenPort='
@@ -153,7 +156,7 @@
       create: yes
     when: zabbix_server != ""
 
-  - name: Ensure zabbix-agent2 service is enabled and running
+  - name: Ensure Zabbix agent 2 service is running
     service:
       name: zabbix-agent2
       state: started
