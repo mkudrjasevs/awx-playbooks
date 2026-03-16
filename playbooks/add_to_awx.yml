@@ -115,14 +115,14 @@
   ##########################
   # Zabbix installation (AlmaLinux 10)
   ##########################
-  - name: Disable Zabbix packages from EPEL if present
-    lineinfile:
-      path: /etc/yum.repos.d/epel.repo
-      regexp: '^excludepkgs='
-      line: 'excludepkgs=zabbix*'
-      state: present
-    ignore_errors: true
-    when: ansible_os_family == "RedHat"
+
+  - name: Ensure excludepkgs for EPEL
+  blockinfile:
+    path: /etc/yum.repos.d/epel.repo
+    insertafter: '^\[epel\]'
+    block: |
+      excludepkgs=zabbix*
+  when: ansible_os_family == "RedHat"
 
   - name: Install Zabbix repository RPM
     dnf:
