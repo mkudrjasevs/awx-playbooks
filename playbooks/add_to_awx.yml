@@ -112,17 +112,18 @@
       - tailscale_auth_key != ""
       - not tailscale_logged_in
 
-  ##########################
+##########################
   # Zabbix installation (AlmaLinux 10)
   ##########################
 
   - name: Ensure excludepkgs for EPEL
-    blockinfile:
+    lineinfile: # Using lineinfile is often safer for single lines than blockinfile
       path: /etc/yum.repos.d/epel.repo
+      regexp: '^excludepkgs='
+      line: 'excludepkgs=zabbix*'
       insertafter: '^\[epel\]'
-      block: |
-        excludepkgs=zabbix*
     when: ansible_os_family == "RedHat"
+    ignore_errors: true # In case epel.repo doesn't exist yet
 
   - name: Install Zabbix repository RPM
     dnf:
@@ -131,18 +132,15 @@
       disable_gpg_check: yes
     when: ansible_os_family == "RedHat"
 
-  - name: Clean DNF cache
-    command: dnf clean all
-    when: ansible_os_family == "RedHat"
-
   - name: Install Zabbix agent 2
-    package:
+    dnf: # Use dnf specifically for RedHat family
       name: zabbix-agent2
       state: present
+      update_cache: yes # This is the critical fix
     when: ansible_os_family == "RedHat"
 
   - name: Install optional Zabbix agent 2 plugins
-    package:
+    dnf:
       name:
         - zabbix-agent2-plugin-mongodb
         - zabbix-agent2-plugin-mssql
