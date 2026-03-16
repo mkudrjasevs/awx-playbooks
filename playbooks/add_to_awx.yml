@@ -77,7 +77,7 @@
       that:
         - (tailscale_auth_key is defined and tailscale_auth_key != "") or (tailscale_client_secret is defined and tailscale_client_secret != "")
       fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret."
-    # Only run this validation if at least one of these is actually provided
+    # Only run this check if you've actually started defining Tailscale vars in AWX
     when: 
       - tailscale_auth_key is defined or tailscale_client_id is defined or tailscale_client_secret is defined
 
