@@ -115,6 +115,14 @@
 ##########################
   # Zabbix installation (AlmaLinux 10)
   ##########################
+  - name: CLEANUP - Remove old Zabbix repo and clear cache
+      shell: |
+        dnf remove -y zabbix-release
+        rm -f /etc/yum.repos.d/zabbix.repo
+        dnf clean all
+        rm -rf /var/cache/dnf
+      when: ansible_os_family == "RedHat"
+      ignore_errors: true
 
   - name: Ensure excludepkgs for EPEL
     lineinfile: # Using lineinfile is often safer for single lines than blockinfile
