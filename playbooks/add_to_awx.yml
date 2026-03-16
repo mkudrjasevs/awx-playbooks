@@ -7,6 +7,12 @@
   vars:
     awx_user: awx_user
     awx_pubkey: ""
+
+    tailscale_auth_key: ""  
+    tailscale_client_id: ""   
+    tailscale_client_secret: ""  
+
+    zabbix_server: "zabbix.example.com"      # Set your Zabbix server
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
     zabbix_version: "7.4"
@@ -69,15 +75,18 @@
   - name: Validate Tailscale credential vars
     assert:
       that:
-        - tailscale_auth_key != "" or tailscale_client_secret != ""
-      fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret (set via job template vars)."
-    when: tailscale_auth_key != "" or tailscale_client_id != "" or tailscale_client_secret != ""
+        - (tailscale_auth_key is defined and tailscale_auth_key != "") or (tailscale_client_secret is defined and tailscale_client_secret != "")
+      fail_msg: "Tailscale requires either tailscale_auth_key or tailscale_client_secret."
+    # Only run this validation if at least one of these is actually provided
+    when: 
+      - tailscale_auth_key is defined or tailscale_client_id is defined or tailscale_client_secret is defined
 
   - name: Use client secret as tailscale auth key when auth key is not directly provided
     set_fact:
       tailscale_auth_key: "{{ tailscale_client_secret }}"
     when:
-      - tailscale_auth_key == ""
+      - tailscale_auth_key is undefined or tailscale_auth_key == ""
+      - tailscale_client_secret is defined
       - tailscale_client_secret != ""
 
   - name: Install Tailscale (automatic installer)
@@ -86,25 +95,28 @@
       curl -fsSL https://tailscale.com/install.sh | sh
     args:
       creates: /usr/bin/tailscale
-    when: tailscale_auth_key != "" or tailscale_client_secret != ""
+    when: tailscale_auth_key is defined and tailscale_auth_key != ""
 
   - name: Check tailscale login status
     command: tailscale status
     register: tailscale_status
     failed_when: false
     changed_when: false
-    when: tailscale_auth_key != "" or tailscale_client_secret != ""
+    when: tailscale_auth_key is defined and tailscale_auth_key != ""
 
   - name: Derive whether tailscale is already logged in
     set_fact:
       tailscale_logged_in: "{{ (tailscale_status.stdout | default('')) is not search('Logged out|Not logged in') }}"
-    when: tailscale_status.stdout is defined
+    when: 
+      - tailscale_status.stdout is defined
+      - tailscale_auth_key is defined
 
   - name: Bring up tailscale (login to tailnet)
     command: tailscale up --authkey "{{ tailscale_auth_key }}"
     when:
+      - tailscale_auth_key is defined
       - tailscale_auth_key != ""
-      - not tailscale_logged_in
+      - not (tailscale_logged_in | default(false))
 
   ##########################
   # Zabbix installation (AlmaLinux 10)
