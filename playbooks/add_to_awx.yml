@@ -101,11 +101,14 @@
       - not tailscale_logged_in
     register: tailscale_up
     
-  - name: Install Zabbix repository package
+  - name: Install Zabbix repo (EL10)
     dnf:
-      name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/rhel/{{ ansible_distribution_major_version }}/x86_64/zabbix-release-latest-{{ zabbix_version }}.el{{ ansible_distribution_major_version }}.noarch.rpm"
+      name: https://repo.zabbix.com/zabbix/7.4/release/alma/10/noarch/zabbix-release-latest-7.4.el10.noarch.rpm
       state: present
       disable_gpg_check: yes
+    when:
+      - ansible_os_family == "RedHat"
+      - ansible_distribution_major_version | int == 10
   
   - name: Refresh dnf cache
     command: dnf clean all
