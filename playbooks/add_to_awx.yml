@@ -41,7 +41,10 @@
       when: (tailscale_auth_key | default("")) != ""
 
     - name: Bring up tailscale
-      command: tailscale up --authkey "{{ tailscale_auth_key }}"
+      command: >
+        tailscale up 
+        --authkey="{{ tailscale_auth_key }}" 
+        --advertise-tags=tag:server
       when:
         - (tailscale_auth_key | default("")) != ""
         - tailscale_status.rc != 0 or 'Logged out' in tailscale_status.stdout
