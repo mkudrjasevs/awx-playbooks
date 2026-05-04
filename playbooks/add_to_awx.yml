@@ -8,7 +8,7 @@
     awx_user: awx_user
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
-    zabbix_version: "7.0"  # Note: 7.4 is not a standard LTS version; adjusted to 7.0
+    zabbix_version: "7.4" 
     # Map repo URLs by OS Family
     zabbix_repo_url:
       Debian: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/debian/pool/main/z/zabbix-release/zabbix-release_latest_7.0+debian12_all.deb"
