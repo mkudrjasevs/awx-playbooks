@@ -1,0 +1,50 @@
+- name: System Update and Maintenance
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Update and Upgrade Debian-based systems
+      block:
+        - name: Run apt update and upgrade
+          apt:
+            upgrade: dist
+            update_cache: yes
+            autoremove: yes
+            purge: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Update and Upgrade RHEL-based systems
+      block:
+        - name: Run dnf upgrade
+          dnf:
+            name: "*"
+            state: latest
+            update_cache: yes
+            autoremove: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Check if a reboot is required (Debian)
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+      when: ansible_os_family == "Debian"
+
+    - name: Check if a reboot is required (RHEL)
+      command: needs-restarting -r
+      register: reboot_required_command
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Reboot the server if kernel was updated
+      reboot:
+        msg: "Reboot initiated by Ansible after system updates"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: >
+        (ansible_os_family == "Debian" and reboot_required_file.stat.exists) or
+        (ansible_os_family == "RedHat" and reboot_required_command.rc != 0)
