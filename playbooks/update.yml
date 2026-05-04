@@ -13,7 +13,7 @@
             autoremove: yes
             purge: yes
       when: ansible_os_family == "Debian"
-
+      
     - name: Update and Upgrade RHEL-based systems
       block:
         - name: Run dnf upgrade
@@ -21,11 +21,11 @@
             name: "*"
             state: latest
             update_cache: yes
-    
-    - name: Remove unused dependencies
-      dnf:
-        autoremove: yes
-        when: ansible_os_family == "RedHat"
+
+        - name: Remove unused dependencies
+          dnf:
+            autoremove: yes
+      when: ansible_os_family == "RedHat"  # <--- Apply here once for the whole block
 
     - name: Check if a reboot is required (Debian)
       stat:
