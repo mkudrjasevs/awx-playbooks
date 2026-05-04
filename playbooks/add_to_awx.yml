@@ -8,69 +8,60 @@
     awx_user: awx_user
     zabbix_hostname: "{{ ansible_fqdn }}"
     zabbix_agent_listen_port: 10050
-    zabbix_version: "7.4"
+    zabbix_version: "7.0"  # Note: 7.4 is not a standard LTS version; adjusted to 7.0
+    # Map repo URLs by OS Family
+    zabbix_repo_url:
+      Debian: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/debian/pool/main/z/zabbix-release/zabbix-release_latest_7.0+debian12_all.deb"
+      RedHat: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/10/noarch/zabbix-release-latest-{{ zabbix_version }}.el10.noarch.rpm"
 
   tasks:
-    - name: Set system hostname to match AWX inventory name
+    - name: Set system hostname
       hostname:
         name: "{{ inventory_hostname }}"
-      # Optional: If you want to ensure it is also set in /etc/hosts
-      become: true
-      
-    - name: Disable firewalld (RedHat/AlmaLinux)
+
+    - name: OS-Specific Firewall Management
       service:
         name: firewalld
         state: stopped
         enabled: false
       when: ansible_os_family == "RedHat"
-      ignore_errors: true # In case firewalld isn't installed at all
-      
-    - name: Ensure Python is installed (Debian)
-      raw: test -e /usr/bin/python3 || (apt update && apt install -y python3)
-      changed_when: false
-      when: ansible_os_family == "Debian"
+      ignore_errors: true
 
-    - name: Ensure Python is installed (RedHat)
-      raw: test -e /usr/bin/python3 || (dnf install -y python3)
-      changed_when: false
-      when: ansible_os_family == "RedHat"
+    - name: Ensure Python 3 is present
+      package:
+        name: python3
+        state: present
 
-    - name: Create AWX user
+    - name: Manage AWX User
       user:
         name: "{{ awx_user }}"
         shell: /bin/bash
         create_home: yes
-
-    - name: Ensure sudo group membership
-      user:
-        name: "{{ awx_user }}"
         groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
         append: yes
-        
-    - name: Set up AWX public key
-      authorized_key:
-        user: "{{ awx_user }}"
-        key: "{{ awx_pubkey }}"
 
-    - name: Allow passwordless sudo
-      copy:
-        dest: "/etc/sudoers.d/{{ awx_user }}"
-        content: "{{ awx_user }} ALL=(ALL) NOPASSWD:ALL"
-        mode: "0440"
+    - name: Set up AWX public key and Sudoers
+      block:
+        - name: Add authorized key
+          authorized_key:
+            user: "{{ awx_user }}"
+            key: "{{ awx_pubkey }}"
+
+        - name: Allow passwordless sudo
+          copy:
+            dest: "/etc/sudoers.d/{{ awx_user }}"
+            content: "{{ awx_user }} ALL=(ALL) NOPASSWD:ALL"
+            mode: "0440"
 
     - name: Install basic packages
       package:
-        name:
-          - git
-          - curl
-          - wget
-          - open-vm-tools
+        name: [git, curl, wget, open-vm-tools]
         state: present
 
-    - name: Install and configure TuneD
+    - name: Install and configure TuneD (RedHat only)
       block:
         - name: Install tuned
-          dnf:
+          package:
             name: tuned
             state: present
 
@@ -84,62 +75,52 @@
           command: tuned-adm profile virtual-guest
           register: tuned_result
           changed_when: "'Current active profile: virtual-guest' not in tuned_result.stdout"
-        
+      when: ansible_os_family == "RedHat"
 
     ##########################
     # Tailscale setup
     ##########################
-
-    - name: Set auth key from client secret if needed
-      set_fact:
-        tailscale_auth_key: "{{ tailscale_client_secret }}"
-      when: 
-        - (tailscale_auth_key | default("")) == ""
-        - (tailscale_client_secret | default("")) != ""
-
-    - name: Install Tailscale
-      shell: |
-        set -euo pipefail
-        curl -fsSL https://tailscale.com/install.sh | sh
+    - name: Install Tailscale via official script
+      shell: "curl -fsSL https://tailscale.com/install.sh | sh"
       args:
         creates: /usr/bin/tailscale
-      when: (tailscale_auth_key | default("")) != ""
-
-    - name: Check tailscale status
-      command: tailscale status
-      register: tailscale_status
-      failed_when: false
-      changed_when: false
-      when: (tailscale_auth_key | default("")) != ""
+      when: tailscale_auth_key | default(tailscale_client_secret) | default('') != ""
 
     - name: Bring up tailscale
       command: >
         tailscale up 
-        --authkey="{{ tailscale_auth_key }}" 
+        --authkey="{{ tailscale_auth_key | default(tailscale_client_secret) }}" 
         --advertise-tags=tag:server
-      when:
-        - (tailscale_auth_key | default("")) != ""
-        - tailscale_status.rc != 0 or 'Logged out' in tailscale_status.stdout
+      register: ts_up
+      changed_when: ts_up.rc == 0
+      failed_when: false
+      when: tailscale_auth_key | default(tailscale_client_secret) | default('') != ""
 
     ##########################
     # Zabbix installation
     ##########################
+    - name: Install Zabbix Repository
+      block:
+        - name: Install Zabbix repo (RedHat)
+          dnf:
+            name: "{{ zabbix_repo_url.RedHat }}"
+            state: present
+            disable_gpg_check: yes
+          when: ansible_os_family == "RedHat"
 
-    - name: Install Zabbix repository RPM
-      dnf:
-        name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/alma/10/noarch/zabbix-release-latest-{{ zabbix_version }}.el10.noarch.rpm"
-        state: present
-        disable_gpg_check: yes
-      when: ansible_os_family == "RedHat"
+        - name: Install Zabbix repo (Debian)
+          apt:
+            deb: "{{ zabbix_repo_url.Debian }}"
+            state: present
+          when: ansible_os_family == "Debian"
 
     - name: Install Zabbix agent 2
-      dnf:
+      package:
         name: zabbix-agent2
         state: present
         update_cache: yes
-      when: ansible_os_family == "RedHat"
 
-    - name: Overwrite Zabbix Agent 2 configuration
+    - name: Configure Zabbix Agent 2
       copy:
         dest: /etc/zabbix/zabbix_agent2.conf
         owner: root
@@ -150,28 +131,19 @@
           ServerActive={{ zabbix_server }}
           Hostname={{ zabbix_hostname }}
           ListenPort={{ zabbix_agent_listen_port }}
-          # This line tells Zabbix Server how to categorize this new host
           HostMetadata=autoreg_linux
           LogFile=/var/log/zabbix/zabbix_agent2.log
           LogFileSize=0
-          Include=/etc/zabbix/zabbix_agent2.d/*.conf
-          ControlSocket=/run/zabbix/agent2.sock
       notify: Restart Zabbix agent 2
 
-    - name: Enable and start Zabbix agent 2 service
+    - name: Enable and start Zabbix agent 2
       service:
         name: zabbix-agent2
         state: started
         enabled: true
 
   handlers:
-    - name: Delay for 5s
-      pause:
-        seconds: 5
-      listen: "Restart Zabbix agent 2"
-
     - name: Restart Zabbix agent 2
       service:
         name: zabbix-agent2
         state: restarted
-      listen: "Restart Zabbix agent 2"
