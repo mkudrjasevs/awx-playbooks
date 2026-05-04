@@ -15,14 +15,17 @@
       when: ansible_os_family == "Debian"
 
     - name: Update and Upgrade RHEL-based systems
-      block:
-        - name: Run dnf upgrade
-          dnf:
-            name: "*"
-            state: latest
-            update_cache: yes
-            autoremove: yes
-      when: ansible_os_family == "RedHat"
+          block:
+            - name: Run dnf upgrade
+              dnf:
+                name: "*"
+                state: latest
+                update_cache: yes
+    
+            - name: Remove unused dependencies
+              dnf:
+                autoremove: yes
+          when: ansible_os_family == "RedHat"
 
     - name: Check if a reboot is required (Debian)
       stat:
